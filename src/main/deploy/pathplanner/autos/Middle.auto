@@ -1,0 +1,49 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "path",
+          "data": {
+            "pathName": "MoveBack_Middle"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "ShootBalls"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "BackMiddle_Pickup"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Intake"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Pickup_Shoot"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "ShootBalls"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": null,
+  "choreoAuto": false
+}

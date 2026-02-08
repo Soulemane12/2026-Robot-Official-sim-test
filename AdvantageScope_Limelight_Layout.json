@@ -1,0 +1,182 @@
+{
+  "hubs": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 900,
+      "state": {
+        "sidebar": {
+          "width": 300,
+          "expanded": [
+            "/limelight",
+            "/Vision",
+            "/DriveState",
+            "/SmartDashboard"
+          ]
+        },
+        "tabs": {
+          "selected": 0,
+          "tabs": [
+            {
+              "type": 3,
+              "title": "Robot + Limelight",
+              "controller": {
+                "sources": [
+                  {
+                    "type": "robot",
+                    "logKey": "NT:/DriveState/Pose",
+                    "logType": "Pose2d",
+                    "visible": true,
+                    "options": {
+                      "model": "2026 KitBot"
+                    }
+                  },
+                  {
+                    "type": "vision",
+                    "logKey": "NT:Vision/CameraPose",
+                    "logType": "Pose3d",
+                    "visible": true,
+                    "options": {
+                      "color": "#00ff00",
+                      "size": "normal"
+                    }
+                  },
+                  {
+                    "type": "vision",
+                    "logKey": "NT:Vision/LookTarget",
+                    "logType": "Pose3d",
+                    "visible": true,
+                    "options": {
+                      "color": "#00ff00",
+                      "size": "normal"
+                    }
+                  },
+                  {
+                    "type": "aprilTags",
+                    "logKey": "",
+                    "logType": "",
+                    "visible": true,
+                    "options": {
+                      "field": "FRC:2024 Field"
+                    }
+                  },
+                  {
+                    "type": "ghost",
+                    "logKey": "NT:Vision/LookTargets",
+                    "logType": "Pose3d[]",
+                    "visible": true,
+                    "options": {
+                      "model": "2026 KitBot",
+                      "color": "#00ff00"
+                    }
+                  }
+                ],
+                "game": "FRC:2026 Field"
+              },
+              "controllerUUID": "limelight_3d_view",
+              "renderer": {
+                "cameraIndex": -1,
+                "orbitFov": 50,
+                "cameraPosition": [0.5, 2.5, 12],
+                "cameraTarget": [0, 0.5, 0]
+              },
+              "controlsHeight": 200
+            },
+            {
+              "type": 1,
+              "title": "Limelight Data",
+              "controller": {
+                "leftSources": [
+                  "NT:/limelight/tx",
+                  "NT:/limelight/ty"
+                ],
+                "rightSources": [
+                  "NT:/limelight/ta",
+                  "NT:/Vision/Distance_to_AprilTag_m"
+                ],
+                "discreteSources": [
+                  "NT:/limelight/tv",
+                  "NT:/limelight/tid"
+                ],
+                "leftLockedRange": [-30, 30],
+                "rightLockedRange": [0, 10],
+                "leftUnitConversion": {
+                  "autoTarget": null,
+                  "preset": null
+                },
+                "rightUnitConversion": {
+                  "autoTarget": null,
+                  "preset": null
+                },
+                "leftFilter": 0,
+                "rightFilter": 0
+              },
+              "controllerUUID": "limelight_graph",
+              "renderer": null,
+              "controlsHeight": 200
+            },
+            {
+              "type": 2,
+              "title": "Vision Sim Field",
+              "controller": {
+                "sources": [
+                  {
+                    "type": "robot",
+                    "logKey": "NT:/SmartDashboard/Vision Sim Field/.robot",
+                    "logType": "Pose2d",
+                    "visible": true,
+                    "options": {}
+                  },
+                  {
+                    "type": "object",
+                    "logKey": "NT:/SmartDashboard/Vision Sim Field/.objects",
+                    "logType": "Pose2dArray",
+                    "visible": true,
+                    "options": {}
+                  }
+                ],
+                "field": "FRC:2024 Field",
+                "orientation": 0,
+                "size": "large"
+              },
+              "controllerUUID": "vision_2d_field",
+              "renderer": null,
+              "controlsHeight": 200
+            },
+            {
+              "type": 5,
+              "title": "Limelight Table",
+              "controller": {
+                "sources": [
+                  "NT:/limelight/tv",
+                  "NT:/limelight/tx",
+                  "NT:/limelight/ty",
+                  "NT:/limelight/ta",
+                  "NT:/limelight/tid",
+                  "NT:/Vision/Distance_to_AprilTag_m",
+                  "NT:/Vision/Shooter_Angle_deg",
+                  "NT:/Vision/HasTarget",
+                  "NT:/Vision/TagID"
+                ]
+              },
+              "controllerUUID": "limelight_table",
+              "renderer": null,
+              "controlsHeight": 0
+            },
+            {
+              "type": 0,
+              "title": "NetworkTables",
+              "controller": null,
+              "controllerUUID": "network_tables_browser",
+              "renderer": "#/",
+              "controlsHeight": 0
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "satellites": [],
+  "version": "26.0.0"
+}
