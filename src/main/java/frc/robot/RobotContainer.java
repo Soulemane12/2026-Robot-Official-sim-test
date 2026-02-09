@@ -63,6 +63,9 @@ public class RobotContainer {
         // Link vision subsystem to drivetrain for rotation override support
         drivetrain.setVisionSubsystem(m_visionSubsystem);
 
+        // Link shooter to drivetrain for projectile launch position
+        m_shooter.setRobotPoseSupplier(() -> drivetrain.getState().Pose);
+
         // Register named commands BEFORE building auto chooser
         NamedCommands.registerCommand("p",
             new TrackHubCommand(drivetrain, m_visionSubsystem));
