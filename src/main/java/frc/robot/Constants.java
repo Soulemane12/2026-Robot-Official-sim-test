@@ -123,6 +123,9 @@ public final class Constants {
         // Static IP for Limelight (default 10.TE.AM.11 based on team number)
         public static final String LIMELIGHT_IP = "10.45.71.11";
 
+        // Target AprilTag ID for auto vision tracking
+        public static final int TARGET_APRILTAG_ID = 11;
+
         // Camera mounting position relative to robot center
         // Front center of the robot
         public static final Transform3d ROBOT_TO_CAMERA = new Transform3d(
