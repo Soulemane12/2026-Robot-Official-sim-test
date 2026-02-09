@@ -17,9 +17,15 @@
           }
         },
         {
+          "type": "wait",
+          "data": {
+            "waitTime": 3.0
+          }
+        },
+        {
           "type": "path",
           "data": {
-            "pathName": "BackMiddle_Pickup"
+            "pathName": "Middle_Pickup"
           }
         },
         {
@@ -31,13 +37,37 @@
         {
           "type": "path",
           "data": {
+            "pathName": "pickintake"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
             "pathName": "Pickup_Shoot"
           }
         },
         {
           "type": "named",
           "data": {
+            "name": "EnableVisionTracking"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Shoot_Move"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
             "name": "ShootBalls"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "DisableVisionTracking"
           }
         }
       ]

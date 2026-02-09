@@ -3,13 +3,13 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 2.4606554549080983,
-        "y": 4.5294048023223885
+        "x": 2.475,
+        "y": 4.015
       },
       "prevControl": null,
       "nextControl": {
-        "x": 2.894310731555258,
-        "y": 4.595225181491968
+        "x": 2.913621957131596,
+        "y": 4.015
       },
       "isLocked": false,
       "linkedName": "End MoveBack_Middle"
@@ -20,7 +20,7 @@
         "y": 5.912462024234589
       },
       "prevControl": {
-        "x": 1.0715446573684602,
+        "x": 1.0715446573684604,
         "y": 6.073655229475878
       },
       "nextControl": null,
@@ -33,8 +33,8 @@
   "pointTowardsZones": [],
   "eventMarkers": [],
   "globalConstraints": {
-    "maxVelocity": 0.5,
-    "maxAcceleration": 0.5,
+    "maxVelocity": 3.0,
+    "maxAcceleration": 3.0,
     "maxAngularVelocity": 540.0,
     "maxAngularAcceleration": 720.0,
     "nominalVoltage": 12.0,
@@ -42,13 +42,13 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": -1.0139706735185616
+    "rotation": 180.0
   },
   "reversed": false,
   "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": -34.550532663227294
+    "rotation": 0.0
   },
   "useDefaultConstraints": true
 }

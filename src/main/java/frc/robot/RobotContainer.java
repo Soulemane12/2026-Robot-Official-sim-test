@@ -81,7 +81,32 @@ public class RobotContainer {
                 m_visionSubsystem.setLEDMode(1);   // Turn off LEDs
             }));
 
-        autoChooser = AutoBuilder.buildAutoChooser("circles");
+        // Placeholder commands for Middle auto (not yet implemented)
+        NamedCommands.registerCommand("ShootBalls",
+            new Command() {
+                @Override
+                public void initialize() {
+                    System.out.println("[Auto] ShootBalls command (placeholder)");
+                }
+                @Override
+                public boolean isFinished() {
+                    return true;
+                }
+            });
+
+        NamedCommands.registerCommand("Intake",
+            new Command() {
+                @Override
+                public void initialize() {
+                    System.out.println("[Auto] Intake command (placeholder)");
+                }
+                @Override
+                public boolean isFinished() {
+                    return true;
+                }
+            });
+
+        autoChooser = AutoBuilder.buildAutoChooser("circle");
 
         configureBindings();
         FollowPathCommand.warmupCommand().schedule();
