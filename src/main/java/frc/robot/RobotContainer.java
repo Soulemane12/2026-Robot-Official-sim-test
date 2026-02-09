@@ -81,7 +81,7 @@ public class RobotContainer {
                 m_visionSubsystem.setLEDMode(1);   // Turn off LEDs
             }));
 
-        autoChooser = AutoBuilder.buildAutoChooser("circle");
+        autoChooser = AutoBuilder.buildAutoChooser("circles");
 
         configureBindings();
         FollowPathCommand.warmupCommand().schedule();
