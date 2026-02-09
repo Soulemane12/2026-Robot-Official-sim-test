@@ -106,7 +106,7 @@ public class RobotContainer {
                 }
             });
 
-        autoChooser = AutoBuilder.buildAutoChooser("circle");
+        autoChooser = AutoBuilder.buildAutoChooser("Middle");
 
         configureBindings();
         FollowPathCommand.warmupCommand().schedule();

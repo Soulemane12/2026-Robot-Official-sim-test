@@ -287,35 +287,39 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                 (speeds, feedforwards) -> {
                     // Apply vision translation override if enabled (tracks AprilTag 11)
                     ChassisSpeeds finalSpeeds = speeds;
+
+                    // Only apply vision override when PathPlanner is commanding movement
+                    // This prevents vision from fighting path endpoint/stopping behavior
+                    double pathSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
+                    boolean pathIsMoving = pathSpeed > 0.1; // 0.1 m/s threshold
+
                     if (m_visionRotationOverrideEnabled && m_visionSubsystem != null &&
                         m_visionSubsystem.hasValidTarget() &&
-                        m_visionSubsystem.getTagID() == Constants.VisionConstants.TARGET_APRILTAG_ID) {
+                        m_visionSubsystem.getTagID() == Constants.VisionConstants.TARGET_APRILTAG_ID &&
+                        pathIsMoving) {  // Only override when path wants movement
 
                         double tx = m_visionSubsystem.getTargetTX();  // Horizontal offset (degrees)
                         double ty = m_visionSubsystem.getTargetTY();  // Vertical offset (degrees)
 
                         // Control gains for vision-based translation
-                        double kTxToStrafe = 0.03;  // Strafe gain (m/s per degree of TX)
-                        double kTyToForward = 0.02; // Forward gain (m/s per degree of TY)
+                        double kTxToStrafe = 0.015;  // Strafe gain (m/s per degree of TX)
+                        double kTyToForward = 0.015; // Forward gain (m/s per degree of TY)
+
+                        // Deadband to avoid jitter when centered
+                        double txDeadband = 2.0; // degrees
+                        double tyDeadband = 2.0; // degrees
 
                         // Calculate translation commands based on target offset
                         // TX: positive = target to right, we want to strafe right
                         // TY: positive = target above crosshair, we're too far, back up
-                        double strafeCmd = tx * kTxToStrafe;  // Positive TX -> strafe right
-                        double forwardCmd = -ty * kTyToForward; // Positive TY -> move backward
+                        double strafeCmd = Math.abs(tx) > txDeadband ? tx * kTxToStrafe : 0.0;
+                        double forwardCmd = Math.abs(ty) > tyDeadband ? -ty * kTyToForward : 0.0;
 
-                        // Clamp to max speeds
-                        strafeCmd = MathUtil.clamp(strafeCmd,
-                            -Constants.DriveConstants.maxSpeed,
-                            Constants.DriveConstants.maxSpeed);
-                        forwardCmd = MathUtil.clamp(forwardCmd,
-                            -Constants.DriveConstants.maxSpeed,
-                            Constants.DriveConstants.maxSpeed);
-
-                        // Override translation, keep PathPlanner's rotation
+                        // Blend vision commands with path commands (not full override)
+                        double blendFactor = 0.5; // 50% vision, 50% path
                         finalSpeeds = new ChassisSpeeds(
-                            forwardCmd,  // X: forward/backward (robot-relative)
-                            strafeCmd,   // Y: strafe left/right (robot-relative)
+                            speeds.vxMetersPerSecond * (1 - blendFactor) + forwardCmd * blendFactor,
+                            speeds.vyMetersPerSecond * (1 - blendFactor) + strafeCmd * blendFactor,
                             speeds.omegaRadiansPerSecond  // Keep PathPlanner's rotation
                         );
 
@@ -325,6 +329,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                         SmartDashboard.putNumber("Auto/VisionStrafeCmd", strafeCmd);
                         SmartDashboard.putNumber("Auto/VisionForwardCmd", forwardCmd);
                         SmartDashboard.putNumber("Auto/TagID", m_visionSubsystem.getTagID());
+                        SmartDashboard.putNumber("Auto/PathSpeed", pathSpeed);
                     } else {
                         SmartDashboard.putBoolean("Auto/VisionOverrideActive", false);
                     }
