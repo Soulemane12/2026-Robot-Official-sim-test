@@ -10,6 +10,7 @@ import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -84,16 +85,53 @@ public class RobotContainer {
                 m_visionSubsystem.setLEDMode(1);   // Turn off LEDs
             }));
 
-        // Placeholder commands for Middle auto (not yet implemented)
+        // ShootBalls command - starts shooter, waits for spinup, shoots, then stops
         NamedCommands.registerCommand("ShootBalls",
             new Command() {
+                private double startTime;
+                private int shotsFired = 0;
+                private static final double SPINUP_TIME = 0.5;  // Wait 0.5s for shooter to spin up
+                private static final double SHOT_INTERVAL = 0.3; // 0.3s between shots
+                private static final int TOTAL_SHOTS = 3;        // Fire 3 projectiles
+                private double lastShotTime = 0;
+
                 @Override
                 public void initialize() {
-                    System.out.println("[Auto] ShootBalls command (placeholder)");
+                    System.out.println("[Auto] ShootBalls command started");
+                    m_shooter.start();
+                    startTime = Timer.getFPGATimestamp();
+                    shotsFired = 0;
                 }
+
+                @Override
+                public void execute() {
+                    double currentTime = Timer.getFPGATimestamp();
+                    double elapsedTime = currentTime - startTime;
+
+                    // After spinup time, fire shots at intervals
+                    if (elapsedTime > SPINUP_TIME) {
+                        if (shotsFired < TOTAL_SHOTS && (currentTime - lastShotTime) > SHOT_INTERVAL) {
+                            // Cycle shooter to trigger projectile launch
+                            m_shooter.stop();
+                            m_shooter.start();
+                            shotsFired++;
+                            lastShotTime = currentTime;
+                            System.out.println("[Auto] Shot " + shotsFired + " of " + TOTAL_SHOTS);
+                        }
+                    }
+                }
+
+                @Override
+                public void end(boolean interrupted) {
+                    m_shooter.stop();
+                    System.out.println("[Auto] ShootBalls command ended. Shots fired: " + shotsFired);
+                }
+
                 @Override
                 public boolean isFinished() {
-                    return true;
+                    double elapsedTime = Timer.getFPGATimestamp() - startTime;
+                    // Finish after spinup + (shots * interval) + small buffer
+                    return shotsFired >= TOTAL_SHOTS && elapsedTime > (SPINUP_TIME + TOTAL_SHOTS * SHOT_INTERVAL + 0.2);
                 }
             });
 
