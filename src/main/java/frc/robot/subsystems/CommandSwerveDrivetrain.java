@@ -295,8 +295,8 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 
                     if (m_visionRotationOverrideEnabled && m_visionSubsystem != null &&
                         m_visionSubsystem.hasValidTarget() &&
-                        m_visionSubsystem.getTagID() == Constants.VisionConstants.TARGET_APRILTAG_ID &&
                         pathIsMoving) {  // Only override when path wants movement
+                        // Note: Tracking any AprilTag, not just ID 11
 
                         double tx = m_visionSubsystem.getTargetTX();  // Horizontal offset (degrees)
                         double ty = m_visionSubsystem.getTargetTY();  // Vertical offset (degrees)
