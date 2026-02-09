@@ -7,8 +7,8 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.smartdashboard.Field2d;
-import edu.wpi.first.wpilibj.smartdashboard.FieldObject2d;
+import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.StructArrayPublisher;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
@@ -29,9 +29,8 @@ public class ShooterSubsystem extends SubsystemBase {
     private static final double GRAVITY = 9.81; // m/s^2
     private static final double PROJECTILE_LIFETIME = 3.0; // seconds
 
-    // Field2d for visualization
-    private Field2d m_field;
-    private FieldObject2d m_projectilesObject;
+    // NetworkTables publishers for projectile visualization
+    private StructArrayPublisher<Pose2d> m_projectilesPublisher;
     private List<Projectile> m_activeProjectiles;
 
     // Projectile class to track individual shots
@@ -80,9 +79,10 @@ public class ShooterSubsystem extends SubsystemBase {
 
         // Initialize projectile tracking
         m_activeProjectiles = new ArrayList<>();
-        m_field = new Field2d();
-        m_projectilesObject = m_field.getObject("projectiles");
-        SmartDashboard.putData("Shooter Field", m_field);
+
+        // Publish projectiles to NetworkTables for AdvantageScope
+        var projectilesTable = NetworkTableInstance.getDefault().getTable("Shooter");
+        m_projectilesPublisher = projectilesTable.getStructArrayTopic("Projectiles", Pose2d.struct).publish();
     }
 
     /**
@@ -137,21 +137,16 @@ public class ShooterSubsystem extends SubsystemBase {
         // Remove expired projectiles
         m_activeProjectiles.removeIf(p -> p.isExpired(currentTime));
 
-        // Update Field2d visualization
+        // Publish projectiles to NetworkTables for AdvantageScope
         if (!m_activeProjectiles.isEmpty()) {
             Pose2d[] projectilePoses = new Pose2d[m_activeProjectiles.size()];
             for (int i = 0; i < m_activeProjectiles.size(); i++) {
                 Translation2d pos = m_activeProjectiles.get(i).getPosition(currentTime);
                 projectilePoses[i] = new Pose2d(pos, new Rotation2d());
             }
-            m_projectilesObject.setPoses(projectilePoses);
+            m_projectilesPublisher.set(projectilePoses);
         } else {
-            m_projectilesObject.setPoses(); // Clear visualization
-        }
-
-        // Update robot pose on field
-        if (m_robotPoseSupplier != null) {
-            m_field.setRobotPose(m_robotPoseSupplier.get());
+            m_projectilesPublisher.set(new Pose2d[0]); // Clear visualization
         }
     }
 
