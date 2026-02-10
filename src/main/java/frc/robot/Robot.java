@@ -83,5 +83,8 @@ public class Robot extends TimedRobot {
     m_robotContainer.getVisionSubsystem().updateSimulation(
       m_robotContainer.getDrivetrain().getState().Pose
     );
+
+    // Update fuel simulation
+    m_robotContainer.fuelSim.updateSim();
   }
 }

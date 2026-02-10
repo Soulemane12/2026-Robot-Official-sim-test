@@ -12,7 +12,8 @@
             "/limelight",
             "/Vision",
             "/DriveState",
-            "/SmartDashboard"
+            "/SmartDashboard",
+            "/Fuel Simulation"
           ]
         },
         "tabs": {
@@ -69,6 +70,16 @@
                     "options": {
                       "model": "2026 KitBot",
                       "color": "#00ff00"
+                    }
+                  },
+                  {
+                    "type": "ghost",
+                    "logKey": "NT:/Fuel Simulation/Fuels",
+                    "logType": "Translation3d[]",
+                    "visible": true,
+                    "options": {
+                      "model": "Ball",
+                      "color": "#ff8800"
                     }
                   }
                 ],
@@ -134,6 +145,15 @@
                     "logType": "Pose2dArray",
                     "visible": true,
                     "options": {}
+                  },
+                  {
+                    "type": "object",
+                    "logKey": "NT:/Fuel Simulation/Fuels",
+                    "logType": "Translation3d[]",
+                    "visible": true,
+                    "options": {
+                      "color": "#ff8800"
+                    }
                   }
                 ],
                 "field": "FRC:2024 Field",

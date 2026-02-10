@@ -17,12 +17,6 @@
           }
         },
         {
-          "type": "wait",
-          "data": {
-            "waitTime": 3.0
-          }
-        },
-        {
           "type": "path",
           "data": {
             "pathName": "Middle_Pickup"
@@ -53,15 +47,22 @@
           }
         },
         {
-          "type": "path",
+          "type": "parallel",
           "data": {
-            "pathName": "Shoot_Move"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "ShootBalls"
+            "commands": [
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "Shoot_Move"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "ShootBalls"
+                }
+              }
+            ]
           }
         },
         {

@@ -22,10 +22,12 @@ import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.VisionSubsystem;
 import frc.robot.subsystems.BallCounterSubsystem;
 import frc.robot.subsystems.ShooterSubsystem;
+import frc.robot.util.FuelSim;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.FollowPathCommand;
 import com.pathplanner.lib.auto.NamedCommands;
 import frc.robot.commands.TrackHubCommand;
+import edu.wpi.first.wpilibj2.command.Commands;
 
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 
@@ -56,6 +58,9 @@ public class RobotContainer {
     private final BallCounterSubsystem m_ballCounter = new BallCounterSubsystem();
     private final ShooterSubsystem m_shooter = new ShooterSubsystem(Constants.CANIds.SHOOTER_MOTOR);
 
+    // Fuel simulation for visualizing balls in AdvantageScope
+    public final FuelSim fuelSim = new FuelSim();
+
     // Store previous Limelight settings for restoration after vision alignment
     private int prevPipeline = 0;
     private int prevLedMode = 0;
@@ -82,53 +87,46 @@ public class RobotContainer {
                 m_visionSubsystem.setLEDMode(1);   // Turn off LEDs
             }));
 
-        // ShootBalls command - starts shooter, waits for spinup, shoots, then stops
+        // ShootBalls command - fires 8 balls with 0.5 second intervals
         NamedCommands.registerCommand("ShootBalls",
             new Command() {
                 private double startTime;
                 private int shotsFired = 0;
-                private static final double SPINUP_TIME = 0.5;  // Wait 0.5s for shooter to spin up
-                private static final double SHOT_INTERVAL = 0.3; // 0.3s between shots
-                private static final int TOTAL_SHOTS = 3;        // Fire 3 projectiles
+                private static final double SHOT_INTERVAL = 0.5; // 0.5 seconds between shots
+                private static final int TOTAL_SHOTS = 8;        // 8 balls total
                 private double lastShotTime = 0;
 
                 @Override
                 public void initialize() {
-                    System.out.println("[Auto] ShootBalls command started");
+                    System.out.println("[Auto] ShootBalls command started - 8 balls with 0.5s intervals");
                     m_shooter.start();
                     startTime = Timer.getFPGATimestamp();
+                    lastShotTime = startTime;
                     shotsFired = 0;
                 }
 
                 @Override
                 public void execute() {
                     double currentTime = Timer.getFPGATimestamp();
-                    double elapsedTime = currentTime - startTime;
 
-                    // After spinup time, fire shots at intervals
-                    if (elapsedTime > SPINUP_TIME) {
-                        if (shotsFired < TOTAL_SHOTS && (currentTime - lastShotTime) > SHOT_INTERVAL) {
-                            // Cycle shooter to trigger projectile launch
-                            m_shooter.stop();
-                            m_shooter.start();
-                            shotsFired++;
-                            lastShotTime = currentTime;
-                            System.out.println("[Auto] Shot " + shotsFired + " of " + TOTAL_SHOTS);
-                        }
+                    // Fire shots at 0.5 second intervals
+                    if (shotsFired < TOTAL_SHOTS && (currentTime - lastShotTime) >= SHOT_INTERVAL) {
+                        m_shooter.shootBall();
+                        shotsFired++;
+                        lastShotTime = currentTime;
+                        System.out.println("[Auto] Shot " + shotsFired + " of " + TOTAL_SHOTS);
                     }
+                }
+
+                @Override
+                public boolean isFinished() {
+                    return shotsFired >= TOTAL_SHOTS;
                 }
 
                 @Override
                 public void end(boolean interrupted) {
                     m_shooter.stop();
                     System.out.println("[Auto] ShootBalls command ended. Shots fired: " + shotsFired);
-                }
-
-                @Override
-                public boolean isFinished() {
-                    double elapsedTime = Timer.getFPGATimestamp() - startTime;
-                    // Finish after spinup + (shots * interval) + small buffer
-                    return shotsFired >= TOTAL_SHOTS && elapsedTime > (SPINUP_TIME + TOTAL_SHOTS * SHOT_INTERVAL + 0.2);
                 }
             });
 
@@ -165,6 +163,9 @@ public class RobotContainer {
                 return true;
             }
         }.ignoringDisable(true).schedule();
+
+        // Initialize fuel simulation
+        configureFuelSim();
     }
 
     private void configureBindings() {
@@ -256,5 +257,47 @@ public class RobotContainer {
      */
     public CommandSwerveDrivetrain getDrivetrain() {
         return drivetrain;
+    }
+
+    /**
+     * Configures the FuelSim physics simulation.
+     */
+    private void configureFuelSim() {
+        // Spawn starting fuel on the field
+        fuelSim.spawnStartingFuel();
+        System.out.println("[FuelSim] Starting fuel spawned on field");
+
+        // Register robot for collisions (adjust dimensions as needed)
+        fuelSim.registerRobot(
+            0.7,  // width in meters (left to right)
+            0.8,  // length in meters (front to back)
+            0.2,  // bumper height in meters
+            () -> drivetrain.getState().Pose,
+            () -> drivetrain.getState().Speeds
+        );
+        System.out.println("[FuelSim] Robot registered with FuelSim");
+
+        // Link shooter to FuelSim for projectile launching
+        m_shooter.setFuelSim(fuelSim);
+        System.out.println("[FuelSim] Shooter linked to FuelSim");
+
+        // Start the simulation
+        fuelSim.start();
+        System.out.println("[FuelSim] Simulation started and running");
+
+        // Add button to reset fuel (optional)
+        SmartDashboard.putData("Reset Fuel",
+            Commands.runOnce(() -> {
+                fuelSim.clearFuel();
+                fuelSim.spawnStartingFuel();
+                System.out.println("[FuelSim] Fuel reset");
+            }).ignoringDisable(true));
+
+        // Add a test button to manually launch a fuel
+        SmartDashboard.putData("Test Shoot",
+            Commands.runOnce(() -> {
+                m_shooter.shootBall();
+                System.out.println("[FuelSim] Test fuel launched manually");
+            }).ignoringDisable(true));
     }
 }

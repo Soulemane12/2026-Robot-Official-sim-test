@@ -3,12 +3,17 @@ package frc.robot.subsystems;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
+import static edu.wpi.first.units.Units.*;
+
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.util.FuelSim;
 
 public class ShooterSubsystem extends SubsystemBase {
     private final TalonFX m_shooterMotor;
     private boolean m_isRunning = false;
+    private FuelSim m_fuelSim;
 
     // Full speed (100% duty cycle)
     private static final double SHOOTER_SPEED = 1.0;
@@ -66,5 +71,27 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     public boolean isRunning() {
         return m_isRunning;
+    }
+
+    /**
+     * Sets the FuelSim instance for launching projectiles in simulation
+     */
+    public void setFuelSim(FuelSim fuelSim) {
+        m_fuelSim = fuelSim;
+    }
+
+    /**
+     * Launches a fuel projectile in simulation
+     */
+    public void shootBall() {
+        if (m_fuelSim != null && RobotBase.isSimulation()) {
+            m_fuelSim.launchFuel(
+                MetersPerSecond.of(6.5),   // launch velocity (more power)
+                Degrees.of(65),             // hood angle (very high arc)
+                Degrees.of(0),              // turret yaw (robot-relative)
+                Meters.of(0.5)              // launch height
+            );
+            System.out.println("[Shooter] Fuel launched in simulation");
+        }
     }
 }

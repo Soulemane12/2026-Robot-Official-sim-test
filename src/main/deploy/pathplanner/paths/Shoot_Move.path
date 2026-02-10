@@ -8,20 +8,20 @@
       },
       "prevControl": null,
       "nextControl": {
-        "x": 0.42113114856538303,
-        "y": 5.249509071168445
+        "x": 0.861026376992811,
+        "y": 4.793903185068673
       },
       "isLocked": false,
       "linkedName": "End Shoot"
     },
     {
       "anchor": {
-        "x": 2.8670025925409224,
-        "y": 2.9302070535932274
+        "x": 3.063516247613089,
+        "y": 3.1435035160609655
       },
       "prevControl": {
-        "x": 1.8670025925409224,
-        "y": 2.9302070535932274
+        "x": 1.6018481869885532,
+        "y": 2.5171689369527703
       },
       "nextControl": null,
       "isLocked": false,
@@ -34,7 +34,7 @@
   "eventMarkers": [],
   "globalConstraints": {
     "maxVelocity": 3.0,
-    "maxAcceleration": 3.0,
+    "maxAcceleration": 1.0,
     "maxAngularVelocity": 540.0,
     "maxAngularAcceleration": 720.0,
     "nominalVoltage": 12.0,
@@ -42,7 +42,7 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 18.926579072699507
+    "rotation": 42.45354474837334
   },
   "reversed": false,
   "folder": null,
@@ -50,5 +50,5 @@
     "velocity": 0,
     "rotation": -25.840243757885585
   },
-  "useDefaultConstraints": true
+  "useDefaultConstraints": false
 }

@@ -301,9 +301,10 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                         double tx = m_visionSubsystem.getTargetTX();  // Horizontal offset (degrees)
                         double ty = m_visionSubsystem.getTargetTY();  // Vertical offset (degrees)
 
-                        // Control gains for vision-based translation
+                        // Control gains for vision-based translation and rotation
                         double kTxToStrafe = 0.015;  // Strafe gain (m/s per degree of TX)
                         double kTyToForward = 0.015; // Forward gain (m/s per degree of TY)
+                        double kTxToRotate = 0.08;   // Rotation gain (rad/s per degree of TX)
 
                         // Deadband to avoid jitter when centered
                         double txDeadband = 2.0; // degrees
@@ -315,12 +316,16 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                         double strafeCmd = Math.abs(tx) > txDeadband ? tx * kTxToStrafe : 0.0;
                         double forwardCmd = Math.abs(ty) > tyDeadband ? -ty * kTyToForward : 0.0;
 
+                        // Calculate rotation command to turn toward target
+                        // TX: positive = target to right, rotate clockwise (positive omega)
+                        double rotateCmd = Math.abs(tx) > txDeadband ? tx * kTxToRotate : 0.0;
+
                         // Blend vision commands with path commands (not full override)
                         double blendFactor = 0.5; // 50% vision, 50% path
                         finalSpeeds = new ChassisSpeeds(
                             speeds.vxMetersPerSecond * (1 - blendFactor) + forwardCmd * blendFactor,
                             speeds.vyMetersPerSecond * (1 - blendFactor) + strafeCmd * blendFactor,
-                            speeds.omegaRadiansPerSecond  // Keep PathPlanner's rotation
+                            speeds.omegaRadiansPerSecond * (1 - blendFactor) + rotateCmd * blendFactor  // Blend rotation with vision
                         );
 
                         SmartDashboard.putBoolean("Auto/VisionOverrideActive", true);
@@ -328,6 +333,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                         SmartDashboard.putNumber("Auto/VisionTY", ty);
                         SmartDashboard.putNumber("Auto/VisionStrafeCmd", strafeCmd);
                         SmartDashboard.putNumber("Auto/VisionForwardCmd", forwardCmd);
+                        SmartDashboard.putNumber("Auto/VisionRotateCmd", rotateCmd);
                         SmartDashboard.putNumber("Auto/TagID", m_visionSubsystem.getTagID());
                         SmartDashboard.putNumber("Auto/PathSpeed", pathSpeed);
                     } else {
