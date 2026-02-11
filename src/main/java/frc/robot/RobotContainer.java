@@ -281,6 +281,14 @@ public class RobotContainer {
         m_shooter.setFuelSim(fuelSim);
         System.out.println("[FuelSim] Shooter linked to FuelSim");
 
+        // Link shooter to robot speeds for shoot-while-moving compensation
+        m_shooter.setRobotSpeedsSupplier(() -> drivetrain.getState().Speeds);
+        System.out.println("[FuelSim] Shooter linked to robot speeds for shoot-while-moving compensation");
+
+        // Link shooter to vision subsystem for distance-based shooting
+        m_shooter.setVisionSubsystem(m_visionSubsystem);
+        System.out.println("[FuelSim] Shooter linked to vision subsystem for distance-based shooting");
+
         // Start the simulation
         fuelSim.start();
         System.out.println("[FuelSim] Simulation started and running");

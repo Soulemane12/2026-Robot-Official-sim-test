@@ -288,56 +288,70 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                     // Apply vision translation override if enabled (tracks AprilTag 11)
                     ChassisSpeeds finalSpeeds = speeds;
 
-                    // Only apply vision override when PathPlanner is commanding movement
-                    // This prevents vision from fighting path endpoint/stopping behavior
-                    double pathSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
-                    boolean pathIsMoving = pathSpeed > 0.1; // 0.1 m/s threshold
+                    if (m_visionRotationOverrideEnabled && m_visionSubsystem != null) {
+                        boolean hasTarget = m_visionSubsystem.hasValidTarget();
+                        double currentTagID = m_visionSubsystem.getTagID();
+                        boolean correctTag = currentTagID == Constants.VisionConstants.TARGET_APRILTAG_ID;
 
-                    if (m_visionRotationOverrideEnabled && m_visionSubsystem != null &&
-                        m_visionSubsystem.hasValidTarget() &&
-                        pathIsMoving) {  // Only override when path wants movement
-                        // Note: Tracking any AprilTag, not just ID 11
+                        if (hasTarget && correctTag) {
+                            // CORRECT TAG (ID 11) - Full vision control
+                            double tx = m_visionSubsystem.getTargetTX();  // Horizontal offset (degrees)
+                            double ty = m_visionSubsystem.getTargetTY();  // Vertical offset (degrees)
 
-                        double tx = m_visionSubsystem.getTargetTX();  // Horizontal offset (degrees)
-                        double ty = m_visionSubsystem.getTargetTY();  // Vertical offset (degrees)
+                            // Control gains for vision-based translation and rotation
+                            double kTxToStrafe = 0.015;  // Strafe gain (m/s per degree of TX)
+                            double kTyToForward = 0.015; // Forward gain (m/s per degree of TY)
+                            double kTxToRotate = 0.30;   // Rotation gain (rad/s per degree of TX) - DOUBLED for aggressive lock
 
-                        // Control gains for vision-based translation and rotation
-                        double kTxToStrafe = 0.015;  // Strafe gain (m/s per degree of TX)
-                        double kTyToForward = 0.015; // Forward gain (m/s per degree of TY)
-                        double kTxToRotate = 0.08;   // Rotation gain (rad/s per degree of TX)
+                            // Deadband to avoid jitter when centered
+                            double txDeadband = 0.5; // degrees (reduced further for tighter tracking)
+                            double tyDeadband = 1.0; // degrees
 
-                        // Deadband to avoid jitter when centered
-                        double txDeadband = 2.0; // degrees
-                        double tyDeadband = 2.0; // degrees
+                            // Calculate translation commands based on target offset
+                            // TX: positive = target to right, we want to strafe right
+                            // TY: positive = target above crosshair, we're too far, back up
+                            double strafeCmd = Math.abs(tx) > txDeadband ? tx * kTxToStrafe : 0.0;
+                            double forwardCmd = Math.abs(ty) > tyDeadband ? -ty * kTyToForward : 0.0;
 
-                        // Calculate translation commands based on target offset
-                        // TX: positive = target to right, we want to strafe right
-                        // TY: positive = target above crosshair, we're too far, back up
-                        double strafeCmd = Math.abs(tx) > txDeadband ? tx * kTxToStrafe : 0.0;
-                        double forwardCmd = Math.abs(ty) > tyDeadband ? -ty * kTyToForward : 0.0;
+                            // Calculate rotation command to turn toward target
+                            // TX: positive = target to right, rotate clockwise (positive omega)
+                            double rotateCmd = Math.abs(tx) > txDeadband ? tx * kTxToRotate : 0.0;
 
-                        // Calculate rotation command to turn toward target
-                        // TX: positive = target to right, rotate clockwise (positive omega)
-                        double rotateCmd = Math.abs(tx) > txDeadband ? tx * kTxToRotate : 0.0;
+                            // Blend translation with path, but FULLY override rotation with vision
+                            double blendFactor = 0.5; // 50% vision, 50% path for translation
+                            finalSpeeds = new ChassisSpeeds(
+                                speeds.vxMetersPerSecond * (1 - blendFactor) + forwardCmd * blendFactor,
+                                speeds.vyMetersPerSecond * (1 - blendFactor) + strafeCmd * blendFactor,
+                                rotateCmd  // FULL vision control - PathPlanner does NOT control rotation
+                            );
 
-                        // Blend vision commands with path commands (not full override)
-                        double blendFactor = 0.5; // 50% vision, 50% path
-                        finalSpeeds = new ChassisSpeeds(
-                            speeds.vxMetersPerSecond * (1 - blendFactor) + forwardCmd * blendFactor,
-                            speeds.vyMetersPerSecond * (1 - blendFactor) + strafeCmd * blendFactor,
-                            speeds.omegaRadiansPerSecond * (1 - blendFactor) + rotateCmd * blendFactor  // Blend rotation with vision
-                        );
+                            SmartDashboard.putBoolean("Auto/VisionOverrideActive", true);
+                            SmartDashboard.putString("Auto/VisionState", "LOCKED_ON_11");
+                            SmartDashboard.putNumber("Auto/VisionTX", tx);
+                            SmartDashboard.putNumber("Auto/VisionTY", ty);
+                            SmartDashboard.putNumber("Auto/VisionStrafeCmd", strafeCmd);
+                            SmartDashboard.putNumber("Auto/VisionForwardCmd", forwardCmd);
+                            SmartDashboard.putNumber("Auto/VisionRotateCmd", rotateCmd);
+                            SmartDashboard.putNumber("Auto/TagID", currentTagID);
+                        } else if (hasTarget && !correctTag) {
+                            // WRONG TAG - Keep translation from path but STOP rotation (don't spin away)
+                            finalSpeeds = new ChassisSpeeds(
+                                speeds.vxMetersPerSecond,
+                                speeds.vyMetersPerSecond,
+                                0.0  // STOP rotation - prevents PathPlanner from rotating away from target zone
+                            );
 
-                        SmartDashboard.putBoolean("Auto/VisionOverrideActive", true);
-                        SmartDashboard.putNumber("Auto/VisionTX", tx);
-                        SmartDashboard.putNumber("Auto/VisionTY", ty);
-                        SmartDashboard.putNumber("Auto/VisionStrafeCmd", strafeCmd);
-                        SmartDashboard.putNumber("Auto/VisionForwardCmd", forwardCmd);
-                        SmartDashboard.putNumber("Auto/VisionRotateCmd", rotateCmd);
-                        SmartDashboard.putNumber("Auto/TagID", m_visionSubsystem.getTagID());
-                        SmartDashboard.putNumber("Auto/PathSpeed", pathSpeed);
+                            SmartDashboard.putBoolean("Auto/VisionOverrideActive", false);
+                            SmartDashboard.putString("Auto/VisionState", "WRONG_TAG_" + (int)currentTagID);
+                            SmartDashboard.putNumber("Auto/TagID", currentTagID);
+                        } else {
+                            // NO TARGET - Keep path control but indicate vision is searching
+                            SmartDashboard.putBoolean("Auto/VisionOverrideActive", false);
+                            SmartDashboard.putString("Auto/VisionState", "SEARCHING");
+                        }
                     } else {
                         SmartDashboard.putBoolean("Auto/VisionOverrideActive", false);
+                        SmartDashboard.putString("Auto/VisionState", "DISABLED");
                     }
 
                     setControl(
