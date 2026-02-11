@@ -355,16 +355,21 @@ public class VisionSubsystem extends SubsystemBase {
     }
 
     /**
-     * Finds the closest visible AprilTag from the camera's perspective.
-     * Checks if tag is within FOV and range.
+     * Finds the visible AprilTag to report from the camera's perspective.
+     * Prefers the configured target tag ID when visible; otherwise falls back
+     * to the closest visible tag.
      *
      * @param cameraPose The camera's pose in field coordinates
-     * @return Optional containing the closest visible tag, or empty if none visible
+     * @return Optional containing the selected visible tag, or empty if none visible
      */
     private Optional<AprilTag> findClosestVisibleTag(Pose3d cameraPose) {
         if (aprilTagFieldLayout == null) {
             return Optional.empty();
         }
+
+        int preferredTagId = Constants.VisionConstants.TARGET_APRILTAG_ID;
+        AprilTag preferredTag = null;
+        double preferredTagDistance = Double.MAX_VALUE;
 
         AprilTag closestTag = null;
         double closestDistance = Double.MAX_VALUE;
@@ -395,11 +400,19 @@ public class VisionSubsystem extends SubsystemBase {
             double verticalAngle = Math.abs(Math.toDegrees(Math.atan2(z, x)));
             if (verticalAngle > Constants.VisionConstants.VERTICAL_FOV_DEGREES / 2.0) continue;
 
-            // Track closest tag
-            if (distance < closestDistance) {
+            if (tag.ID == preferredTagId) {
+                if (distance < preferredTagDistance) {
+                    preferredTagDistance = distance;
+                    preferredTag = tag;
+                }
+            } else if (distance < closestDistance) {
                 closestDistance = distance;
                 closestTag = tag;
             }
+        }
+
+        if (preferredTag != null) {
+            return Optional.of(preferredTag);
         }
 
         return Optional.ofNullable(closestTag);

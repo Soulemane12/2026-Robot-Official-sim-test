@@ -285,70 +285,59 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
                 () -> getState().Speeds, // Supplier of current robot speeds
                 // Consumer of ChassisSpeeds and feedforwards to drive the robot
                 (speeds, feedforwards) -> {
-                    // Apply vision translation override if enabled (tracks AprilTag 11)
                     ChassisSpeeds finalSpeeds = speeds;
 
+                    // When tracking is enabled, PathPlanner never controls omega.
                     if (m_visionRotationOverrideEnabled && m_visionSubsystem != null) {
+                        double targetTagId = Constants.VisionConstants.TARGET_APRILTAG_ID;
                         boolean hasTarget = m_visionSubsystem.hasValidTarget();
                         double currentTagID = m_visionSubsystem.getTagID();
-                        boolean correctTag = currentTagID == Constants.VisionConstants.TARGET_APRILTAG_ID;
+                        boolean lockedOnTargetTag = hasTarget && ((int) currentTagID == (int) targetTagId);
 
-                        if (hasTarget && correctTag) {
-                            // CORRECT TAG (ID 11) - Full vision control
-                            double tx = m_visionSubsystem.getTargetTX();  // Horizontal offset (degrees)
-                            double ty = m_visionSubsystem.getTargetTY();  // Vertical offset (degrees)
+                        double rotateCmd = 0.0;
+                        double tx = 0.0;
+                        final String visionState;
 
-                            // Control gains for vision-based translation and rotation
-                            double kTxToStrafe = 0.015;  // Strafe gain (m/s per degree of TX)
-                            double kTyToForward = 0.015; // Forward gain (m/s per degree of TY)
-                            double kTxToRotate = 0.30;   // Rotation gain (rad/s per degree of TX) - DOUBLED for aggressive lock
+                        if (lockedOnTargetTag) {
+                            tx = m_visionSubsystem.getTargetTX();
+                            double txRad = Math.toRadians(tx);
+                            double txDeadbandDeg = 0.5;
+                            double kVisionAutoKp = 6.0; // rad/s per rad
+                            double minAimRate = 0.25;   // helps overcome static friction in sim
 
-                            // Deadband to avoid jitter when centered
-                            double txDeadband = 0.5; // degrees (reduced further for tighter tracking)
-                            double tyDeadband = 1.0; // degrees
+                            if (Math.abs(tx) > txDeadbandDeg) {
+                                // Limelight: +tx means target is right. +omega is CCW, so rotate CW (negative).
+                                rotateCmd = -kVisionAutoKp * txRad;
+                                rotateCmd = MathUtil.clamp(
+                                    rotateCmd,
+                                    -Constants.DriveConstants.maxAngularRate,
+                                    Constants.DriveConstants.maxAngularRate
+                                );
 
-                            // Calculate translation commands based on target offset
-                            // TX: positive = target to right, we want to strafe right
-                            // TY: positive = target above crosshair, we're too far, back up
-                            double strafeCmd = Math.abs(tx) > txDeadband ? tx * kTxToStrafe : 0.0;
-                            double forwardCmd = Math.abs(ty) > tyDeadband ? -ty * kTyToForward : 0.0;
+                                if (Math.abs(rotateCmd) < minAimRate) {
+                                    rotateCmd = Math.copySign(minAimRate, rotateCmd);
+                                }
+                            }
 
-                            // Calculate rotation command to turn toward target
-                            // TX: positive = target to right, rotate clockwise (positive omega)
-                            double rotateCmd = Math.abs(tx) > txDeadband ? tx * kTxToRotate : 0.0;
-
-                            // Blend translation with path, but FULLY override rotation with vision
-                            double blendFactor = 0.5; // 50% vision, 50% path for translation
-                            finalSpeeds = new ChassisSpeeds(
-                                speeds.vxMetersPerSecond * (1 - blendFactor) + forwardCmd * blendFactor,
-                                speeds.vyMetersPerSecond * (1 - blendFactor) + strafeCmd * blendFactor,
-                                rotateCmd  // FULL vision control - PathPlanner does NOT control rotation
-                            );
-
-                            SmartDashboard.putBoolean("Auto/VisionOverrideActive", true);
-                            SmartDashboard.putString("Auto/VisionState", "LOCKED_ON_11");
-                            SmartDashboard.putNumber("Auto/VisionTX", tx);
-                            SmartDashboard.putNumber("Auto/VisionTY", ty);
-                            SmartDashboard.putNumber("Auto/VisionStrafeCmd", strafeCmd);
-                            SmartDashboard.putNumber("Auto/VisionForwardCmd", forwardCmd);
-                            SmartDashboard.putNumber("Auto/VisionRotateCmd", rotateCmd);
-                            SmartDashboard.putNumber("Auto/TagID", currentTagID);
-                        } else if (hasTarget && !correctTag) {
-                            // WRONG TAG - Keep translation from path but STOP rotation (don't spin away)
-                            finalSpeeds = new ChassisSpeeds(
-                                speeds.vxMetersPerSecond,
-                                speeds.vyMetersPerSecond,
-                                0.0  // STOP rotation - prevents PathPlanner from rotating away from target zone
-                            );
-
-                            SmartDashboard.putBoolean("Auto/VisionOverrideActive", false);
-                            SmartDashboard.putString("Auto/VisionState", "WRONG_TAG_" + (int)currentTagID);
-                            SmartDashboard.putNumber("Auto/TagID", currentTagID);
+                            visionState = "LOCKED_ON_11";
+                        } else if (hasTarget) {
+                            visionState = "WRONG_TAG_" + (int) currentTagID;
                         } else {
-                            // NO TARGET - Keep path control but indicate vision is searching
-                            SmartDashboard.putBoolean("Auto/VisionOverrideActive", false);
-                            SmartDashboard.putString("Auto/VisionState", "SEARCHING");
+                            visionState = "SEARCHING_11";
                         }
+
+                        finalSpeeds = new ChassisSpeeds(
+                            speeds.vxMetersPerSecond,
+                            speeds.vyMetersPerSecond,
+                            rotateCmd
+                        );
+
+                        SmartDashboard.putBoolean("Auto/VisionOverrideActive", lockedOnTargetTag);
+                        SmartDashboard.putString("Auto/VisionState", visionState);
+                        SmartDashboard.putNumber("Auto/VisionTX", tx);
+                        SmartDashboard.putNumber("Auto/VisionRotateCmd", rotateCmd);
+                        SmartDashboard.putNumber("Auto/TagID", currentTagID);
+                        SmartDashboard.putNumber("Auto/TargetTagID", targetTagId);
                     } else {
                         SmartDashboard.putBoolean("Auto/VisionOverrideActive", false);
                         SmartDashboard.putString("Auto/VisionState", "DISABLED");
@@ -560,8 +549,8 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     }
 
     /**
-     * Sets the vision subsystem to use for translation override during auto.
-     * Must be called before enabling vision translation override.
+     * Sets the vision subsystem to use for rotation override during auto.
+     * Must be called before enabling vision tracking override.
      *
      * @param visionSubsystem The vision subsystem instance
      */
@@ -570,10 +559,9 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     }
 
     /**
-     * Enables vision translation override during autonomous path following.
-     * When enabled, the robot will track AprilTag 11 and override translation
-     * (forward/backward and strafe) to center on the tag.
-     * PathPlanner still controls rotation according to the path.
+     * Enables vision rotation override during autonomous path following.
+     * When enabled, the robot keeps PathPlanner translation but overrides rotation
+     * to track the configured AprilTag.
      */
     public void enableVisionRotationOverride() {
         m_visionRotationOverrideEnabled = true;
@@ -581,7 +569,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     }
 
     /**
-     * Disables vision translation override during autonomous path following.
+     * Disables vision rotation override during autonomous path following.
      * The robot will use PathPlanner's translation and rotation targets.
      */
     public void disableVisionRotationOverride() {

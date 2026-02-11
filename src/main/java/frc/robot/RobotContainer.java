@@ -10,6 +10,7 @@ import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -273,7 +274,10 @@ public class RobotContainer {
             0.8,  // length in meters (front to back)
             0.2,  // bumper height in meters
             () -> drivetrain.getState().Pose,
-            () -> drivetrain.getState().Speeds
+            () -> ChassisSpeeds.fromRobotRelativeSpeeds(
+                drivetrain.getState().Speeds,
+                drivetrain.getState().Pose.getRotation()
+            )
         );
         System.out.println("[FuelSim] Robot registered with FuelSim");
 

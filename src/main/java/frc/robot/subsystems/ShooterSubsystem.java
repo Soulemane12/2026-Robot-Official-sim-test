@@ -5,10 +5,12 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 
 import static edu.wpi.first.units.Units.*;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants;
 import frc.robot.util.FuelSim;
 
 import java.util.function.Supplier;
@@ -22,18 +24,24 @@ public class ShooterSubsystem extends SubsystemBase {
     // Full speed (100% duty cycle)
     private static final double SHOOTER_SPEED = 1.0;
 
-    // Shooting parameters for flight time calculation
-    private static final double GRAVITY = 9.81; // m/s^2
-
     // Distance-based shooting parameters (can be tuned)
-    private static final double MIN_VELOCITY = 7.5;  // m/s for close shots (increased power)
-    private static final double MAX_VELOCITY = 11.0;  // m/s for far shots (increased power)
-    private static final double MIN_ANGLE = 75;      // degrees for close shots (extremely high arc)
-    private static final double MAX_ANGLE = 85;      // degrees for far shots (extremely high arc - almost vertical)
+    private static final double MIN_VELOCITY = 6.8;   // m/s for close shots
+    private static final double MAX_VELOCITY = 10.8;  // m/s for far shots
+    private static final double MIN_ANGLE = 58.0;     // degrees for close shots
+    private static final double MAX_ANGLE = 68.0;     // degrees for far shots
     private static final double CLOSE_DISTANCE = 2.0; // meters
     private static final double FAR_DISTANCE = 6.0;  // meters
+    private static final double DEFAULT_DISTANCE = 3.2; // meters when no valid estimate yet
+    private static final double DISTANCE_FILTER_ALPHA = 0.35;
+
+    // Shoot-on-the-move compensation tuning
+    private static final double MIN_FORWARD_COMPONENT = 0.25; // m/s
+    private static final double VELOCITY_HEADROOM = 2.0;      // m/s above max map velocity
+    private static final double MAX_TURRET_COMPENSATION_DEG = 25.0;
 
     private frc.robot.subsystems.VisionSubsystem m_visionSubsystem;
+    private double m_lastDistanceMeters = DEFAULT_DISTANCE;
+    private boolean m_hasDistanceEstimate = false;
 
     public ShooterSubsystem(int motorCanId) {
         m_shooterMotor = new TalonFX(motorCanId);
@@ -116,58 +124,61 @@ public class ShooterSubsystem extends SubsystemBase {
      */
     public void shootBall() {
         if (m_fuelSim != null && RobotBase.isSimulation()) {
-            // Get distance to target from vision subsystem
-            double distance = FAR_DISTANCE; // Default to far distance
-            if (m_visionSubsystem != null && m_visionSubsystem.hasValidTarget()) {
-                distance = m_visionSubsystem.getDistanceToAprilTag();
-            }
+            double distance = getShotDistanceMeters();
 
             // Calculate shooting parameters based on distance
-            // Closer targets = lower velocity, flatter angle
-            // Farther targets = higher velocity, steeper angle
-            double distanceRatio = Math.max(0, Math.min(1,
-                (distance - CLOSE_DISTANCE) / (FAR_DISTANCE - CLOSE_DISTANCE)));
+            double distanceRatio = MathUtil.clamp(
+                (distance - CLOSE_DISTANCE) / (FAR_DISTANCE - CLOSE_DISTANCE),
+                0.0,
+                1.0
+            );
 
-            double launchVelocity = MIN_VELOCITY + (MAX_VELOCITY - MIN_VELOCITY) * distanceRatio;
+            double mappedLaunchVelocity = MIN_VELOCITY + (MAX_VELOCITY - MIN_VELOCITY) * distanceRatio;
             double launchAngleDeg = MIN_ANGLE + (MAX_ANGLE - MIN_ANGLE) * distanceRatio;
+            double launchVelocity = mappedLaunchVelocity;
 
-            // Calculate turret angle compensation for shooting while moving
+            // Calculate launch/turret compensation for shooting while moving.
+            // Compensates both forward/backward velocity (vx) and strafe velocity (vy).
             double turretYawDeg = 0.0; // Default: shoot straight ahead
 
             if (m_robotSpeedsSupplier != null) {
                 ChassisSpeeds robotSpeeds = m_robotSpeedsSupplier.get();
 
-                // Calculate approximate flight time
-                // For a projectile: t = 2 * v_z / g where v_z = v * sin(angle)
                 double launchAngleRad = Math.toRadians(launchAngleDeg);
-                double verticalVelocity = launchVelocity * Math.sin(launchAngleRad);
-                double flightTime = 2.0 * verticalVelocity / GRAVITY;
+                double cosAngle = Math.max(0.05, Math.cos(launchAngleRad));
+                double desiredHorizontalSpeed = mappedLaunchVelocity * cosAngle;
 
-                // Calculate lateral offset due to robot motion
-                // From robot's perspective, target moves with velocity (-vx, -vy)
-                // We care about the strafe component (vy) for turret compensation
-                // FIXED: Use positive offset (robot moving left = aim left)
-                double lateralOffset = flightTime * robotSpeeds.vyMetersPerSecond;
+                double requiredForwardSpeed = Math.max(
+                    MIN_FORWARD_COMPONENT,
+                    desiredHorizontalSpeed - robotSpeeds.vxMetersPerSecond
+                );
+                double requiredStrafeSpeed = -robotSpeeds.vyMetersPerSecond;
+                double compensatedHorizontalSpeed = Math.hypot(requiredForwardSpeed, requiredStrafeSpeed);
 
-                // Calculate horizontal distance the projectile travels
-                double horizontalVelocity = launchVelocity * Math.cos(launchAngleRad);
-                double horizontalDistance = horizontalVelocity * flightTime;
+                double maxCompensatedVelocity = MAX_VELOCITY + VELOCITY_HEADROOM;
+                launchVelocity = MathUtil.clamp(
+                    compensatedHorizontalSpeed / cosAngle,
+                    MIN_VELOCITY,
+                    maxCompensatedVelocity
+                );
+                turretYawDeg = Math.toDegrees(Math.atan2(requiredStrafeSpeed, requiredForwardSpeed));
+                turretYawDeg = MathUtil.clamp(
+                    turretYawDeg,
+                    -MAX_TURRET_COMPENSATION_DEG,
+                    MAX_TURRET_COMPENSATION_DEG
+                );
 
-                // Calculate turret angle needed to compensate
-                // tan(angle) = lateral_offset / horizontal_distance
-                if (horizontalDistance > 0.1) { // Avoid division by zero
-                    turretYawDeg = Math.toDegrees(Math.atan2(lateralOffset, horizontalDistance));
-                }
-
+                SmartDashboard.putNumber("Shooter/RobotVX", robotSpeeds.vxMetersPerSecond);
                 SmartDashboard.putNumber("Shooter/RobotVY", robotSpeeds.vyMetersPerSecond);
-                SmartDashboard.putNumber("Shooter/FlightTime", flightTime);
-                SmartDashboard.putNumber("Shooter/LateralOffset", lateralOffset);
-                SmartDashboard.putNumber("Shooter/TurretCompensation", turretYawDeg);
+                SmartDashboard.putNumber("Shooter/DesiredHorizontalSpeed", desiredHorizontalSpeed);
+                SmartDashboard.putNumber("Shooter/CompensatedHorizontalSpeed", compensatedHorizontalSpeed);
             }
 
             SmartDashboard.putNumber("Shooter/Distance", distance);
+            SmartDashboard.putNumber("Shooter/MappedLaunchVelocity", mappedLaunchVelocity);
             SmartDashboard.putNumber("Shooter/LaunchVelocity", launchVelocity);
             SmartDashboard.putNumber("Shooter/LaunchAngle", launchAngleDeg);
+            SmartDashboard.putNumber("Shooter/TurretCompensation", turretYawDeg);
 
             m_fuelSim.launchFuel(
                 MetersPerSecond.of(launchVelocity),
@@ -176,8 +187,50 @@ public class ShooterSubsystem extends SubsystemBase {
                 Meters.of(0.5)
             );
 
-            System.out.println(String.format("[Shooter] Fuel launched: dist=%.2fm, vel=%.1fm/s, angle=%.1f°, turret=%.1f°",
-                distance, launchVelocity, launchAngleDeg, turretYawDeg));
+            System.out.println(String.format(
+                "[Shooter] Fuel launched: dist=%.2fm, vel=%.1fm/s (mapped %.1f), angle=%.1f°, turret=%.1f°",
+                distance,
+                launchVelocity,
+                mappedLaunchVelocity,
+                launchAngleDeg,
+                turretYawDeg
+            ));
         }
+    }
+
+    private double getShotDistanceMeters() {
+        boolean hasTargetTag = false;
+        boolean usingVisionDistance = false;
+        double rawVisionDistance = -1.0;
+
+        if (m_visionSubsystem != null && m_visionSubsystem.hasValidTarget()) {
+            hasTargetTag = (int) m_visionSubsystem.getTagID() == Constants.VisionConstants.TARGET_APRILTAG_ID;
+            if (hasTargetTag) {
+                rawVisionDistance = m_visionSubsystem.getDistanceToAprilTag();
+                if (rawVisionDistance > 0.1 && rawVisionDistance < 12.0) {
+                    if (m_hasDistanceEstimate) {
+                        m_lastDistanceMeters += DISTANCE_FILTER_ALPHA * (rawVisionDistance - m_lastDistanceMeters);
+                    } else {
+                        m_lastDistanceMeters = rawVisionDistance;
+                        m_hasDistanceEstimate = true;
+                    }
+                    usingVisionDistance = true;
+                }
+            }
+        }
+
+        if (!m_hasDistanceEstimate) {
+            m_lastDistanceMeters = DEFAULT_DISTANCE;
+            m_hasDistanceEstimate = true;
+        }
+
+        double clampedDistance = MathUtil.clamp(m_lastDistanceMeters, CLOSE_DISTANCE, FAR_DISTANCE);
+
+        SmartDashboard.putBoolean("Shooter/HasTargetTag", hasTargetTag);
+        SmartDashboard.putBoolean("Shooter/UsingVisionDistance", usingVisionDistance);
+        SmartDashboard.putNumber("Shooter/RawVisionDistance", rawVisionDistance);
+        SmartDashboard.putNumber("Shooter/FilteredDistance", clampedDistance);
+
+        return clampedDistance;
     }
 }
